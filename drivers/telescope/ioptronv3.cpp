@@ -696,12 +696,10 @@ bool IOptronV3::ReadScopeStatus()
         case ST_STOPPED:
             TrackModeSP.setState(IPS_IDLE);
             TrackState = SCOPE_IDLE;
-            m_SlewCounter = 0;
             break;
         case ST_PARKED:
             TrackModeSP.setState(IPS_IDLE);
             TrackState = SCOPE_PARKED;
-            m_SlewCounter = 0;
             if (!isParked())
                 SetParked(true);
             if (HomeSP.getState() == IPS_BUSY)
@@ -714,7 +712,6 @@ bool IOptronV3::ReadScopeStatus()
         case ST_HOME:
             TrackModeSP.setState(IPS_IDLE);
             TrackState = SCOPE_IDLE;
-            m_SlewCounter = 0;
             if (HomeSP.getState() == IPS_BUSY)
             {
                 HomeSP.reset();
@@ -734,7 +731,6 @@ bool IOptronV3::ReadScopeStatus()
                 setPECState(newInfo.systemStatus == ST_TRACKING_PEC_ON ? PEC_ON : PEC_OFF);
             TrackModeSP.setState(IPS_BUSY);
             TrackState = SCOPE_TRACKING;
-            m_SlewCounter = 0;
             if (scopeInfo.systemStatus == ST_SLEWING)
                 LOG_INFO("Slew complete, tracking...");
             else if (scopeInfo.systemStatus == ST_MERIDIAN_FLIPPING)
@@ -815,7 +811,7 @@ bool IOptronV3::ReadScopeStatus()
         // is no longer any motion.
         if (TrackState == SCOPE_PARKING)
         {
-            if (std::abs(previousRA - currentRA) < 0.0001 && std::abs(previousDE - currentDEC) < 0.0001)
+            if (std::abs(previousRA - currentRA) < 0.01 && std::abs(previousDE - currentDEC) < 0.01)
             {
                 m_ParkingCounter++;
                 if (m_ParkingCounter >= MAX_PARK_COUNTER)
@@ -825,43 +821,7 @@ bool IOptronV3::ReadScopeStatus()
                     SetParked(true);
                 }
             }
-            else
-                m_ParkingCounter = 0;
         }
-
-        // Similar hack for slewing, as some firmware might not transition correctly
-        // if tracking doesn't start or if it reaches target and stops.
-        if (TrackState == SCOPE_SLEWING)
-        {
-            if (std::abs(previousRA - currentRA) < 0.0001 && std::abs(previousDE - currentDEC) < 0.0001)
-            {
-                m_SlewCounter++;
-                if (m_SlewCounter >= MAX_SLEW_COUNTER)
-                {
-                    m_SlewCounter = 0;
-                    LOG_INFO("Motion stopped, slew complete.");
-                    if (CoordSP.isSwitchOn("TRACK"))
-                    {
-                        LOG_INFO("Enabling tracking...");
-                        SetTrackEnabled(true);
-                    }
-                    else
-                    {
-                        TrackState = SCOPE_IDLE;
-                    }
-
-                    if (HomeSP.getState() == IPS_BUSY)
-                    {
-                        HomeSP.reset();
-                        HomeSP.setState(IPS_OK);
-                        HomeSP.apply();
-                    }
-                }
-            }
-            else
-                m_SlewCounter = 0;
-        }
-
         if (pierState == IOP_PIER_UNKNOWN)
             setPierSide(PIER_UNKNOWN);
         else
@@ -884,8 +844,8 @@ bool IOptronV3::Goto(double ra, double de)
 {
     targetRA = ra;
     targetDEC = de;
-
     char RAStr[64] = {0}, DecStr[64] = {0};
+
     fs_sexa(RAStr, targetRA, 2, 3600);
     fs_sexa(DecStr, targetDEC, 2, 3600);
 
@@ -893,18 +853,6 @@ bool IOptronV3::Goto(double ra, double de)
     {
         LOG_ERROR("Error setting RA/DEC.");
         return false;
-    }
-
-    // If already at target, skip the slew command
-    if (std::abs(currentRA - ra) < (1.0 / 3600.0) && std::abs(currentDEC - de) < (1.0 / 3600.0))
-    {
-        LOGF_INFO("Already at target RA: %s - DEC: %s. Slew skipped.", RAStr, DecStr);
-        if (CoordSP.isSwitchOn("TRACK"))
-        {
-            LOG_INFO("Enabling tracking...");
-            SetTrackEnabled(true);
-        }
-        return true;
     }
 
     bool rc = false;
@@ -919,7 +867,6 @@ bool IOptronV3::Goto(double ra, double de)
         return false;
     }
 
-    m_SlewCounter = 0;
     TrackState = SCOPE_SLEWING;
 
     LOGF_INFO("Slewing to RA: %s - DEC: %s", RAStr, DecStr);
@@ -1404,8 +1351,6 @@ IPState IOptronV3::ExecuteHomeAction(TelescopeHomeAction action)
             return IPS_ALERT;
         }
 
-        m_SlewCounter = 0;
-        TrackState = SCOPE_SLEWING;
         LOG_INFO("Searching for home position...");
         return IPS_BUSY;
 
@@ -1424,8 +1369,6 @@ IPState IOptronV3::ExecuteHomeAction(TelescopeHomeAction action)
             return IPS_ALERT;
         }
 
-        m_SlewCounter = 0;
-        TrackState = SCOPE_SLEWING;
         LOG_INFO("Slewing to home position...");
         return IPS_BUSY;
 
