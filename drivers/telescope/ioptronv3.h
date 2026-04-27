@@ -170,6 +170,8 @@ class IOptronV3 : public INDI::Telescope, public INDI::GuiderInterface
 
         uint8_t m_ParkingCounter {0};
         static constexpr const uint8_t MAX_PARK_COUNTER {2};
+        uint8_t m_SlewCounter {0};
+        static constexpr const uint8_t MAX_SLEW_COUNTER {3};
         static constexpr const char *MB_TAB {"Meridian Behavior"};
 
         std::unique_ptr<IOPv3::Driver> driver;
