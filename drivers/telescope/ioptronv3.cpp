@@ -182,7 +182,7 @@ bool IOptronV3::initProperties()
     MeridianActionSP.load();
 
     /* Meridian Limit */
-    MeridianLimitNP[0].fill("VALUE", "Degrees", "%.f", 0, 10, 1, 0);
+    MeridianLimitNP[0].fill("VALUE", "Degrees", "%.f", 0, 20, 1, 0);
     MeridianLimitNP.fill(getDeviceName(), "MERIDIAN_LIMIT", "Limit", MB_TAB, IP_RW, 60, IPS_IDLE);
     MeridianLimitNP.load();
 
