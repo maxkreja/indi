@@ -93,6 +93,11 @@ class IOptronV3 : public INDI::Telescope, public INDI::GuiderInterface
         // Homing
         virtual IPState ExecuteHomeAction(TelescopeHomeAction action) override;
 
+        /* Time Sync Mode */
+        typedef enum { TS_NORMAL, TS_TIME_ONLY, TS_SUBTRACT_DST } TimeSyncMode;
+        ISwitch TimeSyncModeS[3];
+        ISwitchVectorProperty TimeSyncModeSP;
+
     private:
         /**
             * @brief getStartupData Get initial mount info on startup.
